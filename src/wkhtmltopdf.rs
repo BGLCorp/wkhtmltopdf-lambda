@@ -102,6 +102,13 @@ fn convert_inner(ev: &PdfRequest, _ctx: &lambda_runtime::Context) -> anyhow::Res
 
 fn build_args(ev: &PdfRequest) -> anyhow::Result<Vec<String>> {
     let mut args = Vec::new();
+    for option in &ev.options {
+        args.push(option.name.clone());
+        if let Some(value) = &option.value {
+            args.push(value.clone());
+        }
+    }
+
     for page in &ev.pages {
         args.push(page.page_type.to_string());
         if page.page_type == PageType::TOC {
@@ -121,7 +128,7 @@ fn build_args(ev: &PdfRequest) -> anyhow::Result<Vec<String>> {
             return Err(anyhow!("No page source specified"));
         }
         for option in &page.options {
-            args.push(option.option.clone());
+            args.push(option.name.clone());
             if let Some(value) = &option.value {
                 args.push(value.clone());
             }

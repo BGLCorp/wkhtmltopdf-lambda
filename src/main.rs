@@ -16,6 +16,8 @@ static LOGGER: OnceCell<Logger> = OnceCell::new();
 
 #[derive(Deserialize, Clone)]
 pub struct PdfRequest {
+    #[serde(default = "Vec::new")]
+    options: Vec<PdfOption>,
     pages: Vec<PdfPage>,
     output: S3Details,
 }
@@ -44,7 +46,7 @@ pub enum PageType {
 
 #[derive(Deserialize, Clone)]
 pub struct PdfOption {
-    option: String,
+    name: String,
     value: Option<String>,
 }
 
