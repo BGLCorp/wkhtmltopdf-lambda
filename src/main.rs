@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use slog::{Drain, Logger};
 use std::cmp::PartialEq;
 use std::error::Error;
+use std::sync::Mutex;
 
 #[allow(unused_imports)]
 use utils::*;
@@ -63,10 +64,11 @@ pub struct PdfResponse {
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let decorator = slog_term::TermDecorator::new().build();
-    let drain = slog_term::FullFormat::new(decorator).build().fuse();
-    let drain = std::sync::Mutex::new(drain).fuse();
-    let logger = Logger::root(drain, slog::o!());
+    let logger = Logger::root(
+        Mutex::new(slog_bunyan::with_name(env!("CARGO_CRATE_NAME"), std::io::stdout()).build())
+            .fuse(),
+        slog::o!(),
+    );
     LOGGER
         .set(logger)
         .map_err(|_| HandlerError::from("Failed to initialise logger"))?;
