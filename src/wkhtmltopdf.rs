@@ -8,7 +8,7 @@ use std::path::Path;
 use std::process::{Command, Stdio};
 use std::str::FromStr;
 use std::string::ToString;
-use tempfile::NamedTempFile;
+use tempfile::{Builder, NamedTempFile};
 
 #[allow(unused_imports)]
 use crate::{debug, error, info, warn};
@@ -36,7 +36,10 @@ fn convert_inner(ev: &PdfRequest, _ctx: &lambda_runtime::Context) -> anyhow::Res
     );
 
     let mut args = build_args(&ev)?;
-    let mut file = NamedTempFile::new()
+    let mut file = Builder::new()
+        .prefix("wkhtmltopdf-output")
+        .suffix(".pdf")
+        .tempfile()
         .map_err(|e| anyhow!("Failed to create temp file: {}", e.to_string()))?;
     args.push(file.path().to_string_lossy().to_string());
 
@@ -119,7 +122,10 @@ fn build_args(ev: &PdfRequest) -> anyhow::Result<Vec<String>> {
         } else if let Some(ref html_base64) = page.html_base64 {
             let html = base64::decode(html_base64)
                 .map_err(|e| anyhow!("Failed to decode Base64: {}", e.to_string()))?;
-            let mut file = NamedTempFile::new()
+            let mut file = Builder::new()
+                .prefix("wkhtmltopdf-input")
+                .suffix(".html")
+                .tempfile()
                 .map_err(|e| anyhow!("Failed to create temp file: {}", e.to_string()))?;
             file.write_all(&html)
                 .map_err(|e| anyhow!("Failed to write to temp file: {}", e.to_string()))?;
