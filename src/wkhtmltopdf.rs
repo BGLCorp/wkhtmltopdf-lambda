@@ -29,6 +29,12 @@ pub fn convert(ev: PdfRequest, _ctx: lambda_runtime::Context) -> Result<PdfRespo
 }
 
 fn convert_inner(ev: &PdfRequest, _ctx: &lambda_runtime::Context) -> anyhow::Result<PdfResponse> {
+    info!("Converting {} pages", ev.pages.len());
+    info!(
+        "PDF will be uploaded to s3://{}/{}",
+        ev.output.bucket, ev.output.object_key
+    );
+
     let mut args = build_args(&ev)?;
     let mut file = NamedTempFile::new()
         .map_err(|e| anyhow!("Failed to create temp file: {}", e.to_string()))?;
@@ -53,6 +59,8 @@ fn convert_inner(ev: &PdfRequest, _ctx: &lambda_runtime::Context) -> anyhow::Res
             "/usr/share/fonts".to_owned(),
         )
     };
+    info!("wkhtmltopdf path: {}", wkhtmltopdf_path);
+    info!("fontconfig path: {}", fontconfig_path);
 
     let output = Command::new(wkhtmltopdf_path)
         .env("FONTCONFIG_PATH", fontconfig_path)
