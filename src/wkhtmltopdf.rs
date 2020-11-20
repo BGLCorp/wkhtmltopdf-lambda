@@ -35,13 +35,14 @@ fn convert_inner(ev: &PdfRequest, _ctx: &lambda_runtime::Context) -> anyhow::Res
         ev.output.bucket, ev.output.object_key
     );
 
-    let mut args = build_args(&ev)?;
+    let (mut args, _files) = build_args(&ev)?;
     let mut file = Builder::new()
         .prefix("wkhtmltopdf-output")
         .suffix(".pdf")
         .tempfile()
         .map_err(|e| anyhow!("Failed to create temp file: {}", e.to_string()))?;
     args.push(file.path().to_string_lossy().to_string());
+    info!("Args: {:?}", args);
 
     let (wkhtmltopdf_path, fontconfig_path) = if Path::new(WKHTMLTOPDF_LAYER_PATH).exists() {
         (WKHTMLTOPDF_LAYER_PATH.to_owned(), "/opt/fonts".to_owned())
@@ -103,7 +104,7 @@ fn convert_inner(ev: &PdfRequest, _ctx: &lambda_runtime::Context) -> anyhow::Res
     Ok(response)
 }
 
-fn build_args(ev: &PdfRequest) -> anyhow::Result<Vec<String>> {
+fn build_args(ev: &PdfRequest) -> anyhow::Result<(Vec<String>, Vec<NamedTempFile>)> {
     let mut args = Vec::new();
     for option in &ev.options {
         args.push(option.name.clone());
@@ -111,6 +112,8 @@ fn build_args(ev: &PdfRequest) -> anyhow::Result<Vec<String>> {
             args.push(value.clone());
         }
     }
+
+    let mut files = Vec::new();
 
     for page in &ev.pages {
         args.push(page.page_type.to_string());
@@ -130,6 +133,7 @@ fn build_args(ev: &PdfRequest) -> anyhow::Result<Vec<String>> {
             file.write_all(&html)
                 .map_err(|e| anyhow!("Failed to write to temp file: {}", e.to_string()))?;
             args.push(file.path().to_string_lossy().to_string());
+            files.push(file);
         } else {
             return Err(anyhow!("No page source specified"));
         }
@@ -144,7 +148,7 @@ fn build_args(ev: &PdfRequest) -> anyhow::Result<Vec<String>> {
         }
     }
 
-    Ok(args)
+    Ok((args, files))
 }
 
 fn upload(file: &mut NamedTempFile, s3_details: &S3Details) -> anyhow::Result<PutObjectOutput> {
