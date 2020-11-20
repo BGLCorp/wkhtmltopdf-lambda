@@ -6,30 +6,41 @@ build:
     cargo build --release --target x86_64-unknown-linux-musl
 
 clean:
-    rm -f ./bootstrap ./lambda.zip ./wkhtmltopdf.zip ./output.json
+    rm -rf ./target/lambda ./target/lambda.zip ./wkhtmltopdf.zip ./output.json
 
-pack:
+pack bundle_wkhtmltopdf="":
     just build
-    cp ./target/x86_64-unknown-linux-musl/release/wkhtmltopdf-lambda ./bootstrap
-    zip lambda.zip ./bootstrap
-    rm -f ./bootstrap
+    mkdir -p ./target/lambda
+    if [[ -n "{{bundle_wkhtmltopdf}}" ]]; then \
+        wget -O ./wkhtmltopdf.zip "{{wkhtmltopdf_layer_zip}}"; \
+        unzip ./wkhtmltopdf.zip -d ./target/lambda; \
+    fi
+    cp ./target/x86_64-unknown-linux-musl/release/wkhtmltopdf-lambda ./target/lambda/bootstrap
+    cd ./target/lambda && zip -r ../lambda.zip ./*
 
 create-layer:
     wget -O wkhtmltopdf.zip "{{wkhtmltopdf_layer_zip}}"
     aws lambda publish-layer-version --layer-name "{{wkhtmltopdf_layer_name}}" --zip-file fileb://./wkhtmltopdf.zip
     just clean
 
-create-function:
-    just pack
+get-layer bundle_wkhtmltopdf="":
+    if [[ -n "{{bundle_wkhtmltopdf}}" ]]; then \
+        printf ''; \
+    else \
+        printf -- '--layers %s' "$(aws --output text lambda list-layer-versions --layer-name {{wkhtmltopdf_layer_name}} | cut -d $'\t' -f 3 | head -n 1)"; \
+    fi
+
+create-function bundle_wkhtmltopdf="":
+    just pack "{{bundle_wkhtmltopdf}}"
     aws lambda create-function --function-name "{{wkhtmltopdf_function_name}}" --handler "{{wkhtmltopdf_function_name}}" --runtime provided.al2 \
-        --zip-file fileb://./lambda.zip --role "$LAMBDA_ROLE" --environment Variables={RUST_BACKTRACE=1} --tracing-config Mode=Active \
+        --zip-file fileb://./target/lambda.zip --role "$LAMBDA_ROLE" --environment Variables={RUST_BACKTRACE=1} --tracing-config Mode=Active \
         --timeout 30 --memory-size 512 \
-        --layers "$(aws --output text lambda list-layer-versions --layer-name {{wkhtmltopdf_layer_name}} | cut -d $'\t' -f 3 | head -n 1)"
+        $(just get-layer "{{bundle_wkhtmltopdf}}")
     just clean
 
-update-function:
-    just pack
-    aws lambda update-function-code --function-name "{{wkhtmltopdf_function_name}}" --zip-file fileb://./lambda.zip --publish
+update-function bundle_wkhtmltopdf="":
+    just pack "{{bundle_wkhtmltopdf}}"
+    aws lambda update-function-code --function-name "{{wkhtmltopdf_function_name}}" --zip-file fileb://./target/lambda.zip --publish
     just clean
 
 test-function:

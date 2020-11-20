@@ -2,7 +2,9 @@ use anyhow::anyhow;
 use lambda_runtime::error::HandlerError;
 use rusoto_core::Region;
 use rusoto_s3::{PutObjectOutput, PutObjectRequest, S3Client, S3};
+use std::env;
 use std::io::{Read, Write};
+use std::path::Path;
 use std::process::{Command, Stdio};
 use std::str::FromStr;
 use std::string::ToString;
@@ -11,6 +13,9 @@ use tempfile::NamedTempFile;
 #[allow(unused_imports)]
 use crate::{debug, error, info, warn};
 use crate::{PdfRequest, PdfResponse, S3Details};
+
+const WKHTMLTOPDF_LAYER_PATH: &'static str = "/opt/bin/wkhtmltopdf";
+const WKHTMLTOPDF_BUNDLED_PATH: &'static str = "/bin/wkhtmltopdf";
 
 pub fn convert(ev: PdfRequest, _ctx: lambda_runtime::Context) -> Result<PdfResponse, HandlerError> {
     let response = convert_inner(&ev, &_ctx);
@@ -29,9 +34,28 @@ fn convert_inner(ev: &PdfRequest, _ctx: &lambda_runtime::Context) -> anyhow::Res
         .map_err(|e| anyhow!("Failed to create temp file: {}", e.to_string()))?;
     args.push(file.path().to_string_lossy().to_string());
 
-    let output = Command::new("/opt/bin/wkhtmltopdf")
-        .env("LD_LIBRARY_PATH", "/opt/lib")
-        .env("FONTCONFIG_PATH", "/opt/fonts")
+    let (wkhtmltopdf_path, fontconfig_path) = if Path::new(WKHTMLTOPDF_LAYER_PATH).exists() {
+        (WKHTMLTOPDF_LAYER_PATH.to_owned(), "/opt/fonts".to_owned())
+    } else if env::var("LAMBDA_TASK_ROOT").is_ok()
+        && Path::new(
+            (env::var("LAMBDA_TASK_ROOT").unwrap().to_string() + WKHTMLTOPDF_BUNDLED_PATH).as_str(),
+        )
+        .exists()
+    {
+        let task_root = env::var("LAMBDA_TASK_ROOT").unwrap().to_string();
+        (
+            task_root.clone() + WKHTMLTOPDF_BUNDLED_PATH,
+            task_root + "/fonts",
+        )
+    } else {
+        (
+            "/usr/bin/wkhtmltopdf".to_owned(),
+            "/usr/share/fonts".to_owned(),
+        )
+    };
+
+    let output = Command::new(wkhtmltopdf_path)
+        .env("FONTCONFIG_PATH", fontconfig_path)
         .stdin(Stdio::null())
         .args(&args)
         .output()?;
