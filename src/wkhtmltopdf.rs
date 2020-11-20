@@ -133,6 +133,9 @@ fn build_args(ev: &PdfRequest) -> anyhow::Result<Vec<String>> {
                 args.push(value.clone());
             }
         }
+        if page.html_base64.is_some() {
+            args.push("--enable-local-file-access".to_string());
+        }
     }
 
     Ok(args)
