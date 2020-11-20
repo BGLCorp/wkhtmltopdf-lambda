@@ -6,6 +6,7 @@ use lambda_runtime::lambda;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use slog::{Drain, Logger};
+use std::cmp::PartialEq;
 use std::error::Error;
 
 #[allow(unused_imports)]
@@ -31,7 +32,7 @@ pub struct PdfPage {
     options: Vec<PdfOption>,
 }
 
-#[derive(Deserialize, strum_macros::Display, Clone)]
+#[derive(Deserialize, strum_macros::Display, PartialEq, Clone)]
 pub enum PageType {
     #[strum(serialize = "page")]
     PAGE,

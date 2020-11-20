@@ -12,7 +12,7 @@ use tempfile::NamedTempFile;
 
 #[allow(unused_imports)]
 use crate::{debug, error, info, warn};
-use crate::{PdfRequest, PdfResponse, S3Details};
+use crate::{PageType, PdfRequest, PdfResponse, S3Details};
 
 const WKHTMLTOPDF_LAYER_PATH: &'static str = "/opt/bin/wkhtmltopdf";
 const WKHTMLTOPDF_BUNDLED_PATH: &'static str = "/bin/wkhtmltopdf";
@@ -96,6 +96,9 @@ fn build_args(ev: &PdfRequest) -> anyhow::Result<Vec<String>> {
     let mut args = Vec::new();
     for page in &ev.pages {
         args.push(page.page_type.to_string());
+        if page.page_type == PageType::TOC {
+            continue;
+        }
         if let Some(ref html_url) = page.html_url {
             args.push(html_url.clone());
         } else if let Some(ref html_base64) = page.html_base64 {

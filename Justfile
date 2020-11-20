@@ -45,7 +45,7 @@ update-function bundle_wkhtmltopdf="":
 
 test-function:
     aws lambda invoke --function-name "{{wkhtmltopdf_function_name}}" \
-        --payload '{"pages": [{"type": "PAGE", "htmlUrl": "https://github.com"}], "output": {"bucket": "wkhtmltopdf", "objectKey": "pdfs/github.com.pdf"}}' \
+        --payload '{"pages": [{"type": "TOC"}, {"type": "PAGE", "htmlUrl": "https://github.com"}], "output": {"bucket": "wkhtmltopdf", "objectKey": "pdfs/github.com.pdf"}}' \
         ./output.json
     if [[ "$(jq '.success' ./output.json)" == "true" ]]; then \
         aws s3 cp s3://wkhtmltopdf/pdfs/github.com.pdf ./github.com.pdf; \
